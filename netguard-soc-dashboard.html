@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetGuard — Network Security Operations Center</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0d12;
+    --bg2: #0f1319;
+    --bg3: #141923;
+    --panel: #131920;
+    --border: rgba(0,220,180,0.12);
+    --border2: rgba(0,220,180,0.22);
+    --teal: #00dcb4;
+    --teal2: #00a884;
+    --red: #ff4757;
+    --amber: #ffab00;
+    --blue: #3d9eff;
+    --green: #39d353;
+    --muted: #4a5568;
+    --text: #c9d1d9;
+    --text2: #8b949e;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scan-line overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,220,180,0.012) 2px, rgba(0,220,180,0.012) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--teal);
+    letter-spacing: 0.5px;
+  }
+
+  .logo-icon {
+    width: 30px;
+    height: 30px;
+    border: 1.5px solid var(--teal);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .logo-icon::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: var(--teal);
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(57, 211, 83, 0.1);
+    border: 1px solid rgba(57, 211, 83, 0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+
+  #live-clock { color: var(--teal); letter-spacing: 0.5px; }
+
+  /* ── Layout ── */
+  main { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+
+  /* ── Stat Cards ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-color, var(--teal)), transparent);
+  }
+
+  .stat-card:hover { border-color: var(--border2); }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--teal);
+    letter-spacing: -0.5px;
+  }
+
+  .stat-sub {
+    margin-top: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text2);
+  }
+
+  .stat-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+
+  .stat-delta.up { background: rgba(57,211,83,0.1); color: var(--green); }
+  .stat-delta.dn { background: rgba(255,71,87,0.1); color: var(--red); }
+
+  /* ── Grid ── */
+  .grid-row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .grid-3-1 { grid-template-columns: 1fr 380px; }
+  .grid-2    { grid-template-columns: 1fr 1fr; }
+  .grid-3    { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--teal);
+    border-radius: 2px;
+  }
+
+  .panel-body { padding: 16px 20px; }
+
+  /* ── Packet Stream ── */
+  #packet-stream {
+    font-family: var(--mono);
+    font-size: 11px;
+    height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  #packet-stream::-webkit-scrollbar { width: 4px; }
+  #packet-stream::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .packet-row {
+    display: grid;
+    grid-template-columns: 70px 130px 20px 130px 60px 70px 1fr;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    align-items: center;
+    transition: background 0.15s;
+    animation: slide-in 0.25s ease;
+  }
+
+  .packet-row:hover { background: rgba(0,220,180,0.04); }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .pkt-time { color: var(--text2); }
+  .pkt-src  { color: var(--blue); }
+  .pkt-dst  { color: var(--text); }
+  .pkt-size { color: var(--text2); text-align: right; }
+  .pkt-proto { font-weight: 600; text-align: center; }
+  .pkt-info  { color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .proto-tcp  { color: var(--blue); }
+  .proto-udp  { color: var(--amber); }
+  .proto-icmp { color: var(--green); }
+  .proto-http { color: var(--teal); }
+  .proto-dns  { color: #b392f0; }
+  .proto-ssh  { color: #f97583; }
+  .proto-sus  { color: var(--red); }
+
+  .packet-row.alert-row { background: rgba(255,71,87,0.05); border-left: 2px solid var(--red); }
+
+  .stream-header {
+    display: grid;
+    grid-template-columns: 70px 130px 20px 130px 60px 70px 1fr;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  /* ── Port Scanner ── */
+  .scanner-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .scanner-controls input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .scanner-controls input:focus { border-color: var(--teal); }
+
+  .btn {
+    background: rgba(0,220,180,0.1);
+    border: 1px solid var(--teal2);
+    border-radius: 6px;
+    color: var(--teal);
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: rgba(0,220,180,0.18); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn.danger {
+    background: rgba(255,71,87,0.1);
+    border-color: rgba(255,71,87,0.5);
+    color: var(--red);
+  }
+
+  #port-results {
+    font-family: var(--mono);
+    font-size: 11px;
+    height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .port-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    animation: slide-in 0.2s ease;
+  }
+
+  .port-row:hover { background: rgba(255,255,255,0.03); }
+
+  .port-num { width: 54px; color: var(--blue); font-weight: 600; }
+  .port-state { width: 56px; }
+  .port-open   { color: var(--green); }
+  .port-closed { color: var(--muted); }
+  .port-filter { color: var(--amber); }
+  .port-service { flex: 1; color: var(--text2); }
+  .port-risk    { font-size: 10px; padding: 2px 8px; border-radius: 3px; }
+  .risk-hi  { background: rgba(255,71,87,0.15); color: var(--red); }
+  .risk-med { background: rgba(255,171,0,0.15); color: var(--amber); }
+  .risk-lo  { background: rgba(57,211,83,0.12); color: var(--green); }
+  .risk-nil { background: rgba(74,85,104,0.2); color: var(--muted); }
+
+  #scan-progress {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    display: none;
+  }
+
+  #scan-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--teal2), var(--teal));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.08s linear;
+  }
+
+  /* ── Alerts ── */
+  #alert-list {
+    height: 290px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .alert-item {
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    border-left: 3px solid transparent;
+    animation: slide-in 0.3s ease;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .alert-item:hover { background: rgba(255,255,255,0.03); }
+
+  .alert-item.crit { border-color: var(--red); background: rgba(255,71,87,0.06); }
+  .alert-item.high { border-color: var(--amber); background: rgba(255,171,0,0.05); }
+  .alert-item.med  { border-color: var(--blue); background: rgba(61,158,255,0.05); }
+  .alert-item.low  { border-color: var(--muted); background: rgba(74,85,104,0.1); }
+
+  .alert-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .sev-badge {
+    font-size: 9px;
+    font-family: var(--mono);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .sev-crit { background: rgba(255,71,87,0.2); color: var(--red); }
+  .sev-high { background: rgba(255,171,0,0.2); color: var(--amber); }
+  .sev-med  { background: rgba(61,158,255,0.2); color: var(--blue); }
+  .sev-low  { background: rgba(74,85,104,0.3); color: var(--text2); }
+
+  .alert-msg {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .alert-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .alert-detail {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  /* ── Traffic Chart ── */
+  .chart-wrap { position: relative; height: 180px; }
+
+  /* ── Network Map ── */
+  #net-map {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .map-tier { display: flex; gap: 14px; align-items: center; justify-content: center; }
+
+  .map-node {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .map-node:hover { border-color: var(--teal); background: rgba(0,220,180,0.06); }
+  .map-node.internet { border-color: var(--amber); color: var(--amber); }
+  .map-node.firewall { border-color: var(--red); color: var(--red); }
+  .map-node.gateway  { border-color: var(--blue); color: var(--blue); }
+  .map-node.server   { border-color: var(--teal); color: var(--teal); }
+  .map-node.workstation { border-color: var(--muted); color: var(--text2); }
+
+  .node-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+  .node-label { font-size: 9px; letter-spacing: 0.5px; opacity: 0.7; }
+
+  .map-connector {
+    width: 1px;
+    height: 14px;
+    background: var(--border2);
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .map-connector::after {
+    content: '';
+    width: 5px; height: 5px;
+    border-right: 1px solid var(--border2);
+    border-bottom: 1px solid var(--border2);
+    transform: rotate(45deg);
+    position: absolute;
+    bottom: -1px;
+    left: -2px;
+  }
+
+  .map-h-line {
+    height: 1px;
+    background: var(--border);
+    width: 80%;
+    position: relative;
+  }
+
+  /* ── Threat Meter ── */
+  .threat-level {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg3);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .threat-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  #threat-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+    width: 28%;
+    transition: width 1s ease;
+  }
+
+  /* ── Geo Summary ── */
+  .geo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+
+  .geo-row:last-child { border-bottom: none; }
+  .geo-flag { font-size: 16px; width: 24px; }
+  .geo-country { flex: 1; color: var(--text); }
+  .geo-count { color: var(--teal); font-weight: 600; }
+  .geo-bar { height: 3px; width: 80px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .geo-fill { height: 100%; background: var(--teal); border-radius: 2px; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 24px 28px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Scrollbar global ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-3-1  { grid-template-columns: 1fr; }
+    .grid-2    { grid-template-columns: 1fr; }
+    .grid-3    { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 720px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .grid-3    { grid-template-columns: 1fr; }
+    main { padding: 16px; }
+    header { padding: 0 16px; }
+    .header-meta span:not(.status-pill):not(#live-clock) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ──────── HEADER ──────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    NetGuard <span style="font-weight:400;color:var(--text2);font-size:13px;margin-left:4px">SOC v2.1</span>
+  </div>
+  <div class="header-meta">
+    <span id="live-clock">--:--:--</span>
+    <span>Interface: eth0</span>
+    <span>Node: 192.168.1.1</span>
+    <span class="status-pill"><span class="status-dot"></span>MONITORING ACTIVE</span>
+  </div>
+</header>
+
+<!-- ──────── MAIN ──────── -->
+<main>
+
+  <!-- Stat Cards -->
+  <div class="stats-row">
+    <div class="stat-card" style="--accent-color: var(--teal)">
+      <div class="stat-label">▸ Active Hosts</div>
+      <div class="stat-value" id="stat-hosts">24</div>
+      <div class="stat-sub">Subnet 192.168.1.x <span class="stat-delta up">▲ 3</span></div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--blue)">
+      <div class="stat-label">▸ Packets / sec</div>
+      <div class="stat-value" id="stat-pps" style="color:var(--blue)">1,482</div>
+      <div class="stat-sub">↑ 842 &nbsp;↓ 640 <span class="stat-delta up">▲ 12%</span></div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--amber)">
+      <div class="stat-label">▸ IDS Alerts (24h)</div>
+      <div class="stat-value" id="stat-alerts" style="color:var(--amber)">7</div>
+      <div class="stat-sub">2 Critical &nbsp;3 High <span class="stat-delta dn">▼ 2</span></div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--red)">
+      <div class="stat-label">▸ Blocked IPs</div>
+      <div class="stat-value" id="stat-blocked" style="color:var(--red)">13</div>
+      <div class="stat-sub">Firewall rules active <span class="stat-delta up">▲ 1</span></div>
+    </div>
+  </div>
+
+  <!-- Row 1: Packet Capture + Alerts -->
+  <div class="grid-row grid-3-1">
+
+    <!-- Packet Capture -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Live Packet Capture</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text2)">Filter:</span>
+          <select id="proto-filter" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:3px 8px;outline:none">
+            <option value="ALL">ALL</option>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+            <option value="ICMP">ICMP</option>
+            <option value="HTTP">HTTP</option>
+            <option value="DNS">DNS</option>
+            <option value="SSH">SSH</option>
+          </select>
+          <button class="btn danger" onclick="toggleCapture()" id="cap-btn">■ STOP</button>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:12px 16px">
+        <div class="stream-header">
+          <span>TIME</span><span>SRC</span><span></span><span>DST</span><span>PROTO</span><span style="text-align:right">BYTES</span><span>INFO</span>
+        </div>
+        <div id="packet-stream"></div>
+      </div>
+    </div>
+
+    <!-- IDS Alerts -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">IDS / IPS Alerts</div>
+        <button class="btn danger" style="font-size:10px;padding:4px 10px" onclick="clearAlerts()">CLEAR</button>
+      </div>
+      <div class="panel-body">
+
+        <!-- Threat Level -->
+        <div class="threat-level">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text2);white-space:nowrap">THREAT LVL</span>
+          <div class="threat-bar-wrap"><div id="threat-bar"></div></div>
+          <span id="threat-label" style="font-family:var(--mono);font-size:11px;color:var(--amber);font-weight:600;min-width:48px;text-align:right">LOW</span>
+        </div>
+
+        <div id="alert-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Port Scanner + Traffic Chart + Geo -->
+  <div class="grid-row grid-3">
+
+    <!-- Port Scanner -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Port Scanner</div>
+        <span id="scan-status" style="font-family:var(--mono);font-size:10px;color:var(--text2)">Idle</span>
+      </div>
+      <div class="panel-body">
+        <div class="scanner-controls">
+          <input type="text" id="scan-target" value="192.168.1.1" placeholder="Target IP / hostname" />
+          <select id="scan-profile" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 8px;outline:none">
+            <option value="common">Common</option>
+            <option value="full">Top 100</option>
+            <option value="vuln">Vuln Ports</option>
+          </select>
+          <button class="btn" onclick="runScan()">▶ SCAN</button>
+        </div>
+        <div id="scan-progress"><div id="scan-bar"></div></div>
+        <div id="port-results"></div>
+      </div>
+    </div>
+
+    <!-- Traffic Chart -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Network Traffic (60s)</div>
+        <div style="display:flex;gap:12px;font-family:var(--mono);font-size:10px">
+          <span style="color:var(--teal)">▮ Inbound</span>
+          <span style="color:var(--blue)">▮ Outbound</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="chart-wrap">
+          <canvas id="trafficChart"></canvas>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px">
+          <div style="text-align:center">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:4px">AVG IN</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--teal)" id="avg-in">--</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:4px">AVG OUT</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--blue)" id="avg-out">--</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:4px">PEAK</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--amber)" id="peak-val">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Geo + Network Map -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Traffic Origin</div>
+      </div>
+      <div class="panel-body">
+        <div id="geo-list">
+          <div class="geo-row"><span class="geo-flag">🇮🇳</span><span class="geo-country">India (local)</span><span class="geo-count">642</span><div class="geo-bar"><div class="geo-fill" style="width:100%"></div></div></div>
+          <div class="geo-row"><span class="geo-flag">🇺🇸</span><span class="geo-country">United States</span><span class="geo-count" id="geo-us">218</span><div class="geo-bar"><div class="geo-fill" style="width:34%"></div></div></div>
+          <div class="geo-row"><span class="geo-flag">🇩🇪</span><span class="geo-country">Germany</span><span class="geo-count">94</span><div class="geo-bar"><div class="geo-fill" style="width:15%"></div></div></div>
+          <div class="geo-row"><span class="geo-flag">🇨🇳</span><span class="geo-country">China</span><span class="geo-count" id="geo-cn" style="color:var(--red)">71</span><div class="geo-bar"><div class="geo-fill" style="width:11%;background:var(--red)"></div></div></div>
+          <div class="geo-row"><span class="geo-flag">🇷🇺</span><span class="geo-country">Russia</span><span class="geo-count" id="geo-ru" style="color:var(--red)">38</span><div class="geo-bar"><div class="geo-fill" style="width:6%;background:var(--red)"></div></div></div>
+          <div class="geo-row"><span class="geo-flag">🇬🇧</span><span class="geo-country">United Kingdom</span><span class="geo-count">29</span><div class="geo-bar"><div class="geo-fill" style="width:4%"></div></div></div>
+        </div>
+
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Network Topology</div>
+          <div id="net-map">
+            <div class="map-tier">
+              <div class="map-node internet">
+                <span class="node-icon">🌐</span>INTERNET
+                <span class="node-label">WAN</span>
+              </div>
+            </div>
+            <div class="map-connector"></div>
+            <div class="map-tier">
+              <div class="map-node firewall">
+                <span class="node-icon">🔥</span>FIREWALL
+                <span class="node-label">iptables</span>
+              </div>
+            </div>
+            <div class="map-connector"></div>
+            <div class="map-tier">
+              <div class="map-node gateway">
+                <span class="node-icon">🔀</span>GATEWAY
+                <span class="node-label">192.168.1.1</span>
+              </div>
+            </div>
+            <div class="map-connector"></div>
+            <div class="map-tier" style="gap:20px">
+              <div class="map-node server" style="font-size:9px">
+                <span class="node-icon" style="font-size:14px">🖥</span>WEB SRV
+                <span class="node-label">.1.10</span>
+              </div>
+              <div class="map-node server" style="font-size:9px">
+                <span class="node-icon" style="font-size:14px">🗄</span>DB SRV
+                <span class="node-label">.1.20</span>
+              </div>
+              <div class="map-node workstation" style="font-size:9px">
+                <span class="node-icon" style="font-size:14px">💻</span>CLIENT
+                <span class="node-label">.1.50</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  NetGuard SOC Dashboard &nbsp;|&nbsp; Built for JTP Network Security Assessment &nbsp;|&nbsp; Educational / Portfolio Use &nbsp;|&nbsp; v2.1.0
+</footer>
+
+<!-- ──────── SCRIPTS ──────── -->
+<script>
+// ─── Clock ───
+function updateClock() {
+  const now = new Date();
+  document.getElementById('live-clock').textContent =
+    now.toTimeString().slice(0,8);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Packet Capture ───
+const PROTOCOLS = ['TCP','TCP','TCP','TCP','UDP','UDP','HTTP','DNS','ICMP','SSH'];
+const SERVICES  = {
+  TCP:  ['SYN', 'ACK', 'FIN', 'RST', 'PSH'],
+  UDP:  ['Datagram', 'VoIP RTP', 'Broadcast'],
+  HTTP: ['GET /index.html', 'POST /api/data', 'GET /static/app.js', '200 OK', '404 Not Found'],
+  DNS:  ['Query: google.com', 'Query: api.github.com', 'Response: 142.250.x.x', 'NXDOMAIN'],
+  ICMP: ['Echo Request', 'Echo Reply', 'TTL Exceeded', 'Port Unreachable'],
+  SSH:  ['Handshake', 'Key Exchange', 'Auth', 'Session Open'],
+};
+const ALERT_PROTOCOLS = ['SUS_SCAN','SUS_FLOOD','SUS_BRUTE'];
+
+const LOCAL_IPS = ['192.168.1.10','192.168.1.20','192.168.1.50','192.168.1.101','192.168.1.102'];
+const EXT_IPS   = ['45.33.32.156','104.21.14.32','149.154.160.0','91.108.4.0','185.220.101.14','203.0.113.1','8.8.8.8'];
+
+let capturing = true;
+let packetCount = 0;
+let filter = 'ALL';
+const MAX_ROWS = 120;
+
+document.getElementById('proto-filter').addEventListener('change', e => { filter = e.target.value; });
+
+function randIP(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
+function randInt(a,b)  { return Math.floor(Math.random() * (b-a+1)) + a; }
+function pad2(n)       { return String(n).padStart(2,'0'); }
+
+function nowStr() {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,'0')}`;
+}
+
+function addPacket() {
+  if (!capturing) return;
+  const isSuspicious = Math.random() < 0.04;
+  const proto = isSuspicious ? 'SUS' : PROTOCOLS[Math.floor(Math.random() * PROTOCOLS.length)];
+  const inbound = Math.random() < 0.55;
+  const src = inbound ? randIP(EXT_IPS) : randIP(LOCAL_IPS);
+  const dst = inbound ? randIP(LOCAL_IPS) : randIP(EXT_IPS);
+  const bytes = randInt(40, 1500);
+  const info  = isSuspicious
+    ? ['Port scan detected','Flood attempt','Brute-force SSH','Malicious payload'][randInt(0,3)]
+    : (SERVICES[proto] ? SERVICES[proto][randInt(0, SERVICES[proto].length-1)] : 'Data');
+
+  if (filter !== 'ALL' && proto !== filter) return;
+
+  const stream = document.getElementById('packet-stream');
+  const row = document.createElement('div');
+  row.className = `packet-row${isSuspicious ? ' alert-row' : ''}`;
+  row.innerHTML = `
+    <span class="pkt-time">${nowStr()}</span>
+    <span class="pkt-src">${src}</span>
+    <span style="color:var(--muted);text-align:center">→</span>
+    <span class="pkt-dst">${dst}</span>
+    <span class="pkt-proto proto-${proto.toLowerCase().replace('sus','sus')}">${proto}</span>
+    <span class="pkt-size">${bytes}B</span>
+    <span class="pkt-info">${info}</span>`;
+  stream.insertBefore(row, stream.firstChild);
+
+  // Prune
+  while (stream.children.length > MAX_ROWS) stream.removeChild(stream.lastChild);
+  packetCount++;
+  if (packetCount % 10 === 0) updatePPS();
+}
+
+function updatePPS() {
+  const v = randInt(1200, 1800);
+  document.getElementById('stat-pps').textContent = v.toLocaleString();
+}
+
+function toggleCapture() {
+  capturing = !capturing;
+  const btn = document.getElementById('cap-btn');
+  btn.textContent = capturing ? '■ STOP' : '▶ START';
+  btn.style.color = capturing ? 'var(--red)' : 'var(--green)';
+}
+
+setInterval(addPacket, 180);
+
+// ─── Traffic Chart ───
+const CHART_POINTS = 60;
+let inData  = Array.from({length: CHART_POINTS}, () => randInt(300, 900));
+let outData = Array.from({length: CHART_POINTS}, () => randInt(200, 700));
+let labels  = Array.from({length: CHART_POINTS}, (_,i) => i === CHART_POINTS-1 ? '0s' : `-${CHART_POINTS-1-i}s`);
+
+const ctx = document.getElementById('trafficChart').getContext('2d');
+const trafficChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Inbound', data: [...inData],
+        borderColor: '#00dcb4', borderWidth: 1.5,
+        backgroundColor: 'rgba(0,220,180,0.07)',
+        fill: true, tension: 0.4, pointRadius: 0,
+      },
+      {
+        label: 'Outbound', data: [...outData],
+        borderColor: '#3d9eff', borderWidth: 1.5,
+        backgroundColor: 'rgba(61,158,255,0.06)',
+        fill: true, tension: 0.4, pointRadius: 0,
+      },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: '#131920', borderColor: '#00dcb4', borderWidth: 1,
+      titleColor: '#8b949e', bodyColor: '#c9d1d9',
+      callbacks: { label: c => ` ${c.dataset.label}: ${c.raw} KB/s` }
+    }},
+    scales: {
+      x: { grid: { color: 'rgba(0,220,180,0.06)' }, ticks: { color: '#4a5568', font: { family: "'JetBrains Mono'", size: 9 }, maxTicksLimit: 8 }},
+      y: { grid: { color: 'rgba(0,220,180,0.06)' }, ticks: { color: '#4a5568', font: { family: "'JetBrains Mono'", size: 9 }, callback: v => v+'KB' }, min: 0 }
+    }
+  }
+});
+
+function updateChart() {
+  inData.shift();  inData.push(randInt(250, 950));
+  outData.shift(); outData.push(randInt(150, 750));
+  trafficChart.data.datasets[0].data = [...inData];
+  trafficChart.data.datasets[1].data = [...outData];
+  trafficChart.update('none');
+
+  const avgIn  = Math.round(inData.reduce((a,b)=>a+b,0)/inData.length);
+  const avgOut = Math.round(outData.reduce((a,b)=>a+b,0)/outData.length);
+  const peak   = Math.max(...inData, ...outData);
+  document.getElementById('avg-in').textContent  = avgIn+'KB';
+  document.getElementById('avg-out').textContent = avgOut+'KB';
+  document.getElementById('peak-val').textContent = peak+'KB';
+}
+
+setInterval(updateChart, 1200);
+updateChart();
+
+// ─── IDS Alerts ───
+const ALERT_DEFS = [
+  { sev:'crit', cls:'crit', msg:'Port Scan Detected', detail:'192.168.1.50 → 192.168.1.1 [SYN flood on 1024 ports]' },
+  { sev:'crit', cls:'crit', msg:'SSH Brute-Force Attempt', detail:'185.220.101.14 → .1.10:22 [147 failed auths in 60s]' },
+  { sev:'high', cls:'high', msg:'Suspicious Outbound Traffic', detail:'.1.50 → 91.108.4.0:443 [unusual bytes: 4.2MB]' },
+  { sev:'high', cls:'high', msg:'DNS Exfiltration Pattern', detail:'.1.20 → 8.8.8.8 [120 queries/min, long TXT records]' },
+  { sev:'high', cls:'high', msg:'ARP Spoofing Detected', detail:'MAC mismatch on 192.168.1.1 [MITM risk]' },
+  { sev:'med',  cls:'med',  msg:'Unusual Port 8443 Access', detail:'203.0.113.1 → .1.10:8443 [no service registered]' },
+  { sev:'med',  cls:'med',  msg:'ICMP Flood (Smurf)', detail:'45.33.32.156 → broadcast [620 pkt/s]' },
+  { sev:'low',  cls:'low',  msg:'Failed Login: FTP', detail:'.1.102 → .1.20:21 [3 attempts]' },
+  { sev:'low',  cls:'low',  msg:'Outdated TLS 1.0 Detected', detail:'.1.50 → 104.21.14.32 [weak cipher: RC4]' },
+];
+
+let alertCount = 0;
+
+function addAlert(def) {
+  const list = document.getElementById('alert-list');
+  const now = new Date();
+  const timeStr = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  const el = document.createElement('div');
+  el.className = `alert-item ${def.cls}`;
+  el.innerHTML = `
+    <div class="alert-top">
+      <span class="sev-badge sev-${def.cls}">${def.sev}</span>
+      <span class="alert-msg">${def.msg}</span>
+      <span class="alert-time">${timeStr}</span>
+    </div>
+    <div class="alert-detail">${def.detail}</div>`;
+  list.insertBefore(el, list.firstChild);
+  alertCount++;
+  document.getElementById('stat-alerts').textContent = alertCount + 7;
+  updateThreat();
+}
+
+function updateThreat() {
+  const level = Math.min(100, 20 + alertCount * 8);
+  document.getElementById('threat-bar').style.width = level + '%';
+  const label = level > 70 ? 'HIGH' : level > 40 ? 'MEDIUM' : 'LOW';
+  const color  = level > 70 ? 'var(--red)' : level > 40 ? 'var(--amber)' : 'var(--green)';
+  const el = document.getElementById('threat-label');
+  el.textContent = label;
+  el.style.color  = color;
+}
+
+function clearAlerts() {
+  document.getElementById('alert-list').innerHTML = '';
+  alertCount = 0;
+  updateThreat();
+  document.getElementById('stat-alerts').textContent = 7;
+}
+
+// Seed initial alerts
+[ALERT_DEFS[0], ALERT_DEFS[2], ALERT_DEFS[4], ALERT_DEFS[7]].forEach(a => addAlert(a));
+
+// Random alerts
+setInterval(() => {
+  if (Math.random() < 0.3) {
+    addAlert(ALERT_DEFS[randInt(0, ALERT_DEFS.length-1)]);
+  }
+}, 8000);
+
+// ─── Port Scanner ───
+const COMMON_PORTS = [
+  { port:21,   svc:'FTP',        risk:'med' },
+  { port:22,   svc:'SSH',        risk:'med' },
+  { port:23,   svc:'Telnet',     risk:'hi'  },
+  { port:25,   svc:'SMTP',       risk:'med' },
+  { port:53,   svc:'DNS',        risk:'lo'  },
+  { port:80,   svc:'HTTP',       risk:'lo'  },
+  { port:110,  svc:'POP3',       risk:'med' },
+  { port:135,  svc:'MS-RPC',     risk:'hi'  },
+  { port:139,  svc:'NetBIOS',    risk:'hi'  },
+  { port:143,  svc:'IMAP',       risk:'med' },
+  { port:443,  svc:'HTTPS',      risk:'lo'  },
+  { port:445,  svc:'SMB',        risk:'hi'  },
+  { port:1433, svc:'MSSQL',      risk:'hi'  },
+  { port:3306, svc:'MySQL',      risk:'hi'  },
+  { port:3389, svc:'RDP',        risk:'hi'  },
+  { port:5432, svc:'PostgreSQL', risk:'med' },
+  { port:6379, svc:'Redis',      risk:'hi'  },
+  { port:8080, svc:'HTTP-Alt',   risk:'med' },
+  { port:8443, svc:'HTTPS-Alt',  risk:'lo'  },
+  { port:27017,svc:'MongoDB',    risk:'hi'  },
+];
+
+const VULN_PORTS = [23,135,139,445,1433,3389,6379,27017];
+const FULL_PORTS = Array.from({length:100},(_,i)=>i+1);
+
+let scanning = false;
+
+async function runScan() {
+  if (scanning) return;
+  scanning = true;
+  const target = document.getElementById('scan-target').value.trim() || '192.168.1.1';
+  const profile = document.getElementById('scan-profile').value;
+  const results  = document.getElementById('port-results');
+  const progress = document.getElementById('scan-progress');
+  const bar      = document.getElementById('scan-bar');
+  const status   = document.getElementById('scan-status');
+
+  results.innerHTML = '';
+  progress.style.display = 'block';
+  bar.style.width = '0%';
+
+  let ports;
+  if (profile === 'vuln') {
+    ports = COMMON_PORTS.filter(p => VULN_PORTS.includes(p.port));
+  } else if (profile === 'full') {
+    ports = COMMON_PORTS;
+  } else {
+    ports = COMMON_PORTS.slice(0,12);
+  }
+
+  for (let i = 0; i < ports.length; i++) {
+    const p = ports[i];
+    await sleep(randInt(60, 160));
+    bar.style.width = ((i+1)/ports.length*100).toFixed(0) + '%';
+    status.textContent = `Scanning :${p.port}...`;
+
+    // Simulate open/closed
+    const openChance = [80,443,22,53].includes(p.port) ? 0.85
+                     : VULN_PORTS.includes(p.port) ? 0.35 : 0.2;
+    const state = Math.random() < openChance ? 'OPEN'
+                : Math.random() < 0.15 ? 'FILTERED' : 'CLOSED';
+    const riskClass = state === 'OPEN' ? p.risk : 'nil';
+    const riskLabel = { hi:'HIGH RISK', med:'MEDIUM', lo:'SAFE', nil:'—' }[riskClass];
+
+    const row = document.createElement('div');
+    row.className = 'port-row';
+    row.innerHTML = `
+      <span class="port-num">${p.port}</span>
+      <span class="port-state port-${state.toLowerCase()}">${state}</span>
+      <span class="port-service">${p.svc}</span>
+      <span class="port-risk risk-${riskClass}">${riskLabel}</span>`;
+    results.appendChild(row);
+    results.scrollTop = results.scrollHeight;
+  }
+
+  status.textContent = `Done — ${target} (${ports.length} ports)`;
+  progress.style.display = 'none';
+  scanning = false;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Animate stat counters ───
+function animateStat(id, target) {
+  const el = document.getElementById(id);
+  let v = 0;
+  const step = Math.ceil(target / 30);
+  const iv = setInterval(() => {
+    v = Math.min(v + step, target);
+    el.textContent = v.toLocaleString();
+    if (v >= target) clearInterval(iv);
+  }, 40);
+}
+
+setTimeout(() => {
+  animateStat('stat-hosts', 24);
+  animateStat('stat-blocked', 13);
+}, 300);
+
+// ─── Slowly update geo ───
+setInterval(() => {
+  const us = document.getElementById('geo-us');
+  const cn = document.getElementById('geo-cn');
+  const ru = document.getElementById('geo-ru');
+  us.textContent = randInt(200, 240);
+  cn.textContent = randInt(60, 90);
+  ru.textContent = randInt(30, 50);
+}, 5000);
+</script>
+</body>
+</html>
