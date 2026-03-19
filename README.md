@@ -5,7 +5,7 @@ Network Security Operations Center Dashboard — Live packet capture, port scann
 A real-time Network Security Monitoring Dashboard built as part of a cybersecurity portfolio.
 
 ## 🚀 Live Demo
-[Click here to view](https://balkiratsinghkaloya.github.io/netguard-soc-dashboard)
+[Click here to view](https://balkiratsinghkaloya.github.io/netgurad-soc-dashboard/)
 
 ## 📌 Features
 - **Live Packet Capture** — Real-time TCP/UDP/HTTP/DNS/SSH traffic simulation with protocol filtering
