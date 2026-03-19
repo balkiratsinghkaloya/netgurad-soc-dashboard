@@ -30,4 +30,4 @@ A real-time Network Security Monitoring Dashboard built as part of a cybersecuri
 Just download and open `netguard-soc-dashboard.html` in any browser. No installation needed.
 
 ## 👤 Author
-Your Name — [LinkedIn](https://linkedin.com/in/balkiratsingh)
+Balkirat Singh— [LinkedIn](https://linkedin.com/in/balkiratsingh)
